@@ -86,7 +86,7 @@ export function Market() {
             <div className="flex justify-between items-center mb-2">
               <span className="font-medium text-black">Collateral Required</span>
               <span className="text-2xl font-semibold text-black">
-                {quote.collateral ? `${formatEther(quote.collateral)}` : "0.00"} RBTC
+                {quote.collateral ? `${parseFloat(formatEther(quote.collateral)).toFixed(6)}` : "0.000000"} RBTC
               </span>
             </div>
              <div className="text-xs text-black space-y-1">
