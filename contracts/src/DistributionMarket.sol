@@ -3,8 +3,10 @@ pragma solidity ^0.8.19;
 
 // We import the type and the sd() wrapper function.
 import {SD59x18, sd} from "@prb/math/src/SD59x18.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract DistributionMarket {
+// The contract now IS an ERC20 token
+contract DistributionMarket is ERC20 {
     // --- State Variables ---
     address public owner;
     bool public initialized;
@@ -16,12 +18,20 @@ contract DistributionMarket {
     SD59x18 public immutable k;
     SD59x18 public immutable b;
 
+    // --- NEW STATE VARIABLE ---
+    uint256 public totalCollateral; // Tracks total collateral held in the pool
+
     // --- Events ---
     event MarketUpdated(SD59x18 newMean, SD59x18 newSigma);
 
     // --- Constructor ---
-    // The constructor now sets the immutable variables and the owner.
-    constructor(SD59x18 _k, SD59x18 _b) {
+    // The constructor now accepts the immutable values AND the ERC20 name/symbol.
+    constructor(
+        SD59x18 _k,
+        SD59x18 _b,
+        string memory _lpTokenName,
+        string memory _lpTokenSymbol
+    ) ERC20(_lpTokenName, _lpTokenSymbol) { // This part sets up the ERC20 token
         owner = msg.sender;
         k = _k;
         b = _b;
@@ -40,6 +50,75 @@ contract DistributionMarket {
         standardDeviation = _initialSigma;
         description = _description;
         initialized = true;
+    }
+
+    // --- Liquidity Functions ---
+
+    function addLiquidity() external payable {
+        require(msg.value > 0, "Must provide collateral");
+
+        uint256 sharesToMint;
+        uint256 totalSupply = totalSupply(); // Get total LP shares from ERC20
+
+        if (totalSupply == 0) {
+            // This is the VERY FIRST liquidity provider.
+            // We mint them shares equal to the collateral they provided.
+            sharesToMint = msg.value;
+        } else {
+            // For all subsequent providers, we mint shares proportionally
+            // to keep the share price fair.
+            sharesToMint = (msg.value * totalSupply) / totalCollateral;
+        }
+
+        require(sharesToMint > 0, "Insufficient amount for shares");
+
+        // Update the total collateral in the pool
+        totalCollateral += msg.value;
+
+        // Mint the new LP shares directly to the provider
+        _mint(msg.sender, sharesToMint);
+    }
+
+    function removeLiquidity(uint256 sharesToBurn) external {
+        uint256 totalSupply = totalSupply();
+        require(sharesToBurn > 0, "Must burn at least one share");
+        require(totalSupply > 0, "Pool is empty");
+
+        // Calculate the amount of collateral this user is entitled to.
+        uint256 collateralToReturn = (sharesToBurn * totalCollateral) / totalSupply;
+
+        // Update the total collateral in the pool
+        totalCollateral -= collateralToReturn;
+
+        // Burn the user's LP shares
+        _burn(msg.sender, sharesToBurn);
+
+        // Send the collateral back to them
+        payable(msg.sender).transfer(collateralToReturn);
+    }
+
+    /**
+     * @notice Calculates how many LP shares would be minted for a given collateral amount.
+     * This is a read-only function for the frontend to get a preview.
+     */
+    function quoteAddLiquidity(
+        uint256 collateralAmount
+    ) external view returns (uint256 sharesToMint) {
+        if (collateralAmount == 0) {
+            return 0;
+        }
+
+        uint256 totalSupply = totalSupply();
+
+        if (totalSupply == 0) {
+            // For the first provider, shares minted equals collateral provided.
+            sharesToMint = collateralAmount;
+        } else {
+            // For subsequent providers, mint proportionally.
+            sharesToMint = (collateralAmount * totalSupply) / totalCollateral;
+        }
+
+        return sharesToMint;
     }
 
     // --- Core Functions ---

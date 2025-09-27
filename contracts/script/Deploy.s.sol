@@ -20,15 +20,26 @@ contract Deploy is Script {
         console.log("Using the factory to create the first market (BTC Price 2025)...");
 
         // Define the parameters for our new market
-        // CORRECTED SYNTAX: Use `value * 10**18` for whole numbers
         SD59x18 initialMean = sd(70000 * 1e18);
         SD59x18 initialSigma = sd(5000 * 1e18);
         SD59x18 k = sd(1000 * 1e18);
         SD59x18 b = sd(100 * 1e18);
         string memory description = "Bitcoin (BTC) Price at end of 2025";
+        
+        // --- NEW PARAMETERS FOR THE LP TOKEN ---
+        string memory lpTokenName = "Normals BTC 2025 LP Token";
+        string memory lpTokenSymbol = "NORM-BTC-LP";
 
-        // Call the createMarket function
-        factory.createMarket(initialMean, initialSigma, k, b, description);
+        // Call the updated createMarket function with the new arguments
+        factory.createMarket(
+            initialMean,
+            initialSigma,
+            k,
+            b,
+            description,
+            lpTokenName,
+            lpTokenSymbol
+        );
 
         // --- Step 3: Get the address of our newly created market ---
         address[] memory deployedMarkets = factory.getDeployedMarkets();

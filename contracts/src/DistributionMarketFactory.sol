@@ -15,10 +15,12 @@ contract DistributionMarketFactory {
         SD59x18 _initialSigma,
         SD59x18 _k,
         SD59x18 _b,
-        string calldata _description
+        string calldata _description,
+        string calldata _lpTokenName,
+        string calldata _lpTokenSymbol
     ) external {
         // 1. Deploy a new instance, passing k and b to its constructor.
-        DistributionMarket newMarket = new DistributionMarket(_k, _b);
+        DistributionMarket newMarket = new DistributionMarket(_k, _b, _lpTokenName, _lpTokenSymbol);
 
         // 2. Initialize the new market with its other starting parameters.
         newMarket.initialize(_initialMean, _initialSigma, _description);

@@ -12,6 +12,8 @@ export function Admin() {
     const [k, setK] = useState('');
     const [b, setB] = useState('');
     const [description, setDescription] = useState('');
+    const [lpTokenName, setLpTokenName] = useState('');
+    const [lpTokenSymbol, setLpTokenSymbol] = useState('');
 
     const { toast } = useToast();
 
@@ -34,6 +36,8 @@ export function Admin() {
                     parseEther(k),
                     parseEther(b),
                     description,
+                    lpTokenName,
+                    lpTokenSymbol,
                 ],
             });
         } catch (error: any) {
@@ -134,10 +138,33 @@ export function Admin() {
                             </div>
                         </div>
                         
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-black mb-2">
+                                    LP Token Name
+                                </label>
+                                <Input 
+                                    placeholder="e.g., BitCurve BTC-2025 LP" 
+                                    value={lpTokenName} 
+                                    onChange={(e) => setLpTokenName(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-black mb-2">
+                                    LP Token Symbol
+                                </label>
+                                <Input 
+                                    placeholder="e.g., BC-BTC-LP" 
+                                    value={lpTokenSymbol} 
+                                    onChange={(e) => setLpTokenSymbol(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
                         <div className="pt-4">
                             <Button 
                                 type="submit" 
-                                disabled={isLoading || !description || !initialMean || !initialSigma || !k || !b}
+                                disabled={isLoading || !description || !initialMean || !initialSigma || !k || !b || !lpTokenName || !lpTokenSymbol}
                                 className="w-full text-white"
                             >
                                 {isLoading ? 'Deploying Market...' : 'Deploy New Market'}
