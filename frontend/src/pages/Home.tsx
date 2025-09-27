@@ -1,4 +1,6 @@
 import Button from "@/components/ui/button";
+import { MarketList } from "@/components/markets/MarketList";
+import { Link } from "react-router-dom";
 
 export function Home() {
   return (
@@ -21,9 +23,10 @@ export function Home() {
         </h1>
 
         <Button className="mt-8">
-          Explore markets
+          <Link to="/market">Explore markets</Link>
         </Button>
       </section>
+      <MarketList />
     </main>
   );
 }

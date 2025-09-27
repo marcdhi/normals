@@ -1,4 +1,3 @@
-import Logo from "@/components/ui/logo";
 import ConnectButton from "./ConnectButton";
 import { Link } from "react-router-dom";
 import { JSX } from "react";

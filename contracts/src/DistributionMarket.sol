@@ -6,8 +6,13 @@ import {SD59x18, sd} from "@prb/math/src/SD59x18.sol";
 
 contract DistributionMarket {
     // --- State Variables ---
+    address public owner;
+    bool public initialized;
+    string public description;
+
     SD59x18 public mean;
     SD59x18 public standardDeviation;
+    // k and b are back to being immutable!
     SD59x18 public immutable k;
     SD59x18 public immutable b;
 
@@ -15,16 +20,26 @@ contract DistributionMarket {
     event MarketUpdated(SD59x18 newMean, SD59x18 newSigma);
 
     // --- Constructor ---
-    constructor(
-        SD59x18 _initialMean,
-        SD59x18 _initialSigma,
-        SD59x18 _k,
-        SD59x18 _b
-    ) {
-        mean = _initialMean;
-        standardDeviation = _initialSigma;
+    // The constructor now sets the immutable variables and the owner.
+    constructor(SD59x18 _k, SD59x18 _b) {
+        owner = msg.sender;
         k = _k;
         b = _b;
+    }
+
+    // The initializer sets the remaining variables.
+    function initialize(
+        SD59x18 _initialMean,
+        SD59x18 _initialSigma,
+        string calldata _description
+    ) external {
+        require(msg.sender == owner, "Only owner can initialize");
+        require(!initialized, "Market already initialized");
+
+        mean = _initialMean;
+        standardDeviation = _initialSigma;
+        description = _description;
+        initialized = true;
     }
 
     // --- Core Functions ---
@@ -183,4 +198,3 @@ function _pdfDerivative(
     return pdf_val.mul(x_minus_mu.mul(sd(-1e18))).div(sigma_squared);
 }
 }
-

@@ -1,37 +1,40 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import "../src/ERC20Token.sol";
-import "../src/DistributionMarket.sol";
+import {Script, console} from "forge-std/Script.sol";
+import {DistributionMarketFactory} from "../src/DistributionMarketFactory.sol";
+import {DistributionMarket} from "../src/DistributionMarket.sol";
 import {SD59x18, sd} from "@prb/math/src/SD59x18.sol";
 
-// contract DeployERC20Token is Script {
-//     function setUp() public {}
-
-//     function run() public {
-//         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-//         vm.startBroadcast(deployerPrivateKey);
-
-//         // Deployment with initial supply of 1,000 tokens
-//         new ERC20Token(1000 * 10 ** 18);
-//         vm.stopBroadcast();
-//     }
-// }
-
-contract DeployDistributionMarket is Script {
-    function run() external returns (DistributionMarket) {
+contract Deploy is Script {
+    function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        SD59x18 initialMean = sd(70000e18);
-        SD59x18 initialSigma = sd(5000e18);
-        SD59x18 k = sd(1000e18);
-        SD59x18 b = sd(100e18);
+        // --- Step 1: Deploy the Factory ---
+        console.log("Deploying the DistributionMarketFactory...");
+        DistributionMarketFactory factory = new DistributionMarketFactory();
+        console.log("Factory deployed at address:", address(factory));
 
-        DistributionMarket market = new DistributionMarket(initialMean, initialSigma, k, b);
+        // --- Step 2: Use the Factory to create our first market ---
+        console.log("Using the factory to create the first market (BTC Price 2025)...");
 
+        // Define the parameters for our new market
+        // CORRECTED SYNTAX: Use `value * 10**18` for whole numbers
+        SD59x18 initialMean = sd(70000 * 1e18);
+        SD59x18 initialSigma = sd(5000 * 1e18);
+        SD59x18 k = sd(1000 * 1e18);
+        SD59x18 b = sd(100 * 1e18);
+        string memory description = "Bitcoin (BTC) Price at end of 2025";
+
+        // Call the createMarket function
+        factory.createMarket(initialMean, initialSigma, k, b, description);
+
+        // --- Step 3: Get the address of our newly created market ---
+        address[] memory deployedMarkets = factory.getDeployedMarkets();
+        address firstMarketAddress = deployedMarkets[0];
+        console.log("First market (BTC Price 2025) deployed at address:", firstMarketAddress);
+        
         vm.stopBroadcast();
-        return market;
     }
 }

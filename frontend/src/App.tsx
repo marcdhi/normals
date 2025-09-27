@@ -2,7 +2,7 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "@/components/ui/toaster";
 import Footer from "@/components/Footer";
-import { Etherspot, Home, Wagmi, Market } from "@/pages";
+import { Etherspot, Home, Market, Admin } from "@/pages";
 
 function App() {
   return (
@@ -11,8 +11,9 @@ function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="/aa" element={<Etherspot />} />
-          <Route path="/wagmi" element={<Wagmi />} />
+          <Route path="/market/:address" element={<Market />} />
           <Route path="/market" element={<Market />} />
         </Routes>
         <Footer />

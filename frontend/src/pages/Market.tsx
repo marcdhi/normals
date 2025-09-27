@@ -1,11 +1,16 @@
-import { useBitcoinMarketState } from "@/hooks/useBitcoinMarketState";
+import { useParams } from "react-router-dom";
+import { useMarketState } from "@/hooks/useMarketState";
 import { Slider } from "@/components/ui/slider";
 import Button from "@/components/ui/button";
 import DistributionChart from "@/components/market/DistributionChart";
 import { formatEther } from "viem";
 import Loader from "@/components/ui/loader";
+import { DISTRIBUTION_MARKET_ADDRESS } from "@/lib/constants";
 
 export function Market() {
+  const { address } = useParams();
+  const marketAddress = (address || DISTRIBUTION_MARKET_ADDRESS) as `0x${string}`;
+
   const {
     marketState,
     proposedState,
@@ -16,7 +21,7 @@ export function Market() {
     isExecuting,
     isConfirmed,
     hash,
-  } = useBitcoinMarketState();
+  } = useMarketState(marketAddress);
 
   const handleMuChange = (value: number[]) => {
     setProposedState(prev => ({ ...prev, mu: value[0] }));
@@ -33,8 +38,8 @@ export function Market() {
   return (
     <section className="max-w-7xl mx-auto p-4 md:p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-1 text-black">What price will gold close at in 2025?</h1>
-        <p className="text-black">Predicting the USD gold price.</p>
+        <h1 className="text-3xl font-bold mb-1 text-black">{marketState.description}</h1>
+        <p className="text-black">Predicting the future, one distribution at a time.</p>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
