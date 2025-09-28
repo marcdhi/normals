@@ -1,4 +1,4 @@
-export default function Footer(): JSX.Element {
+export default function Footer() {
   return (
     <nav className="flex items-center justify-center py-3 px-5 rounded-full mb-4 w-full max-w-[1200px] mx-auto ">
       <p className="text-white/80 mx-auto text-center">

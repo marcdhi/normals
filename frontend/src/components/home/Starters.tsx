@@ -1,7 +1,7 @@
 import { StarterProps } from "@/lib/types";
 import StarterCard from "./StarterCard";
 
-export default function Starters(): JSX.Element {
+export default function Starters() {
   return (
     <section className="mx-auto" id="starters">
       <header className="text-center">

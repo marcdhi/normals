@@ -247,18 +247,7 @@ export function Market() {
     }
   };
 
-  const handleClosePosition = () => {
-    if (selectedLegIndex === null || !quoteClose?.collateral || !quoteClose?.argminX) return;
-    const leg = legs.find(l => l.index === selectedLegIndex);
-    if (!leg) return;
-    // Execute trade to target (oldTerm) using quoted argminX and required collateral as msg.value
-    writeClose({
-      ...contractForReads,
-      functionName: "trade",
-      args: [leg.oldMean, leg.oldSigma, quoteClose.argminX!],
-      value: quoteClose.collateral!,
-    });
-  };
+  // removed unused handleClosePosition
 
   const handleMuChange = (value: number[]) => {
     setProposedState(prev => ({ ...prev, mu: value[0] }));

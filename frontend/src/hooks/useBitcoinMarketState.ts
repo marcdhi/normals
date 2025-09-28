@@ -3,7 +3,6 @@ import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 
 import { abi } from "@/assets/abis/DistributedMarketabi";
 import { DISTRIBUTION_MARKET_ADDRESS } from "@/lib/constants";
 import { fromSD59x18, toSD59x18 } from "@/lib/utils/sd59x18";
-import { parseGwei } from "viem";
 
 interface MarketState {
   mean: number;

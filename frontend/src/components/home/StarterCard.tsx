@@ -11,7 +11,7 @@ export default function StarterCard({
   starter,
 }: {
   starter: StarterProps;
-}): JSX.Element {
+}) {
   const navigate = useNavigate();
 
   return (

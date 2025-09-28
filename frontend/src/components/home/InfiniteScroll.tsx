@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-export default function InfiniteScroll(): JSX.Element {
+export default function InfiniteScroll() {
   const scroller = useRef<HTMLDivElement>(null);
   const scrollerInner = useRef<HTMLUListElement>(null);
 
