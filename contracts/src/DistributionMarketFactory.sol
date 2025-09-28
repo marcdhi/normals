@@ -20,7 +20,9 @@ contract DistributionMarketFactory {
         address _collateralToken,
         string calldata _description,
         string calldata _lpTokenName,
-        string calldata _lpTokenSymbol
+        string calldata _lpTokenSymbol,
+        bool _isPrivate,
+        address[] calldata _initialWhitelist
     ) external {
         // 1. Deploy a new instance, passing k and b to its constructor.
         DistributionMarket newMarket = new DistributionMarket(
@@ -34,7 +36,12 @@ contract DistributionMarketFactory {
         );
 
         // 2. Initialize the new market with its other starting parameters.
-        newMarket.initialize(_initialMean, _initialSigma, _description);
+        newMarket.initialize(_initialMean, _initialSigma, _description, _isPrivate);
+
+        // 2b. If private and there are users to whitelist, add them
+        if (_isPrivate && _initialWhitelist.length > 0) {
+            newMarket.addToWhitelist(_initialWhitelist);
+        }
 
         // 3. Store the address of the new market.
         deployedMarkets.push(address(newMarket));

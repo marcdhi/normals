@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther } from "viem";
 import { factoryAddress, factoryAbi } from "@/lib/web3Config";
+import { createPublicClient, http, isAddress, type Address } from "viem";
+import { mainnet } from "viem/chains";
+import { normalize } from "viem/ens";
 import { Input } from "@/components/ui/input";
 import Button from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,6 +18,8 @@ export function Admin() {
     const [description, setDescription] = useState('');
     const [lpTokenName, setLpTokenName] = useState('');
     const [lpTokenSymbol, setLpTokenSymbol] = useState('');
+    const [isPrivate, setIsPrivate] = useState(false);
+    const [whitelistInput, setWhitelistInput] = useState('');
 
     // Pyth search state
     const [pythQuery, setPythQuery] = useState('');
@@ -38,7 +43,7 @@ export function Admin() {
         hash: data,
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             if (!selectedFeed) throw new Error('Please select a Pyth price feed.');
@@ -53,6 +58,25 @@ export function Admin() {
             if (!Number.isFinite(expirySeconds) || expirySeconds <= 0) throw new Error('Invalid expiry date/time');
 
             const collateralArg = collateralToken === 'native' ? '0x0000000000000000000000000000000000000000' : collateralToken;
+
+            // Build initial whitelist: resolve ENS if needed
+            let initialWhitelist: Address[] = [];
+            if (isPrivate && whitelistInput.trim().length > 0) {
+                const ensClient = createPublicClient({ chain: mainnet, transport: http() });
+                const names = whitelistInput.split(',').map(s => s.trim()).filter(Boolean);
+                for (const name of names) {
+                    try {
+                        if (isAddress(name)) {
+                            initialWhitelist.push(name as Address);
+                            continue;
+                        }
+                        const addr = await ensClient.getEnsAddress({ name: normalize(name) });
+                        if (addr) initialWhitelist.push(addr as Address);
+                    } catch {
+                        // ignore unresolvable entries
+                    }
+                }
+            }
 
             writeContract({
                 address: factoryAddress,
@@ -69,6 +93,8 @@ export function Admin() {
                     description,
                     lpTokenName,
                     lpTokenSymbol,
+                    isPrivate,
+                    initialWhitelist
                 ],
             });
         } catch (error: any) {
@@ -302,6 +328,22 @@ export function Admin() {
                             </div>
 
                             <div className="pt-4">
+                                <div className="mb-4 flex items-center gap-2">
+                                    <input id="privateMarket" type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+                                    <label htmlFor="privateMarket" className="text-sm text-black">Make this a private market</label>
+                                </div>
+                                {isPrivate && (
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-black mb-2">Whitelist ENS names or addresses (comma separated)</label>
+                                        <textarea
+                                            className="w-full border border-black p-2 text-black bg-white"
+                                            rows={3}
+                                            placeholder="vitalik.eth, user.eth, 0x1234..."
+                                            value={whitelistInput}
+                                            onChange={(e) => setWhitelistInput(e.target.value)}
+                                        />
+                                    </div>
+                                )}
                                 <Button 
                                     type="submit" 
                                     disabled={

@@ -48,7 +48,9 @@ contract Deploy is Script {
             collateralToken,
             description,
             lpTokenName,
-            lpTokenSymbol
+            lpTokenSymbol,
+            false,
+            new address[](0)
         );
 
         // --- Step 3: Get the address of our newly created market ---

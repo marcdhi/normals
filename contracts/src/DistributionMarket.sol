@@ -12,6 +12,9 @@ contract DistributionMarket is ERC20 {
     address public owner;
     bool public initialized;
     string public description;
+    // --- NEW STATE VARIABLES FOR PRIVATE MARKETS ---
+    bool public isPrivate;
+    mapping(address => bool) public isWhitelisted;
 
     SD59x18 public mean;
     SD59x18 public standardDeviation;
@@ -70,7 +73,8 @@ contract DistributionMarket is ERC20 {
     function initialize(
         SD59x18 _initialMean,
         SD59x18 _initialSigma,
-        string calldata _description
+        string calldata _description,
+        bool _isPrivate
     ) external {
         require(msg.sender == owner, "Only owner can initialize");
         require(!initialized, "Market already initialized");
@@ -78,12 +82,16 @@ contract DistributionMarket is ERC20 {
         mean = _initialMean;
         standardDeviation = _initialSigma;
         description = _description;
+        isPrivate = _isPrivate;
         initialized = true;
     }
 
     // --- Liquidity Functions ---
 
     function addLiquidity(uint256 collateralAmount) external payable {
+        if (isPrivate) {
+            require(isWhitelisted[msg.sender], "Not whitelisted for this private market");
+        }
         require(collateralAmount > 0, "Must provide collateral");
         _receiveCollateral(collateralAmount);
 
@@ -191,6 +199,9 @@ function quoteCollateral(
         SD59x18 newSigma,
         SD59x18 argminX
     ) public payable {
+        if (isPrivate) {
+            require(isWhitelisted[msg.sender], "Not whitelisted for this private market");
+        }
         SD59x18 oldMean = mean;
         SD59x18 oldSigma = standardDeviation;
         // 1. Verify the provided argminX and get the required collateral.
@@ -216,6 +227,14 @@ function quoteCollateral(
 
         // 5. Store leg for user's position history
         _storeLeg(oldMean, oldSigma, newMean, newSigma);
+    }
+
+    // --- Whitelist Management ---
+    function addToWhitelist(address[] calldata users) external {
+        require(msg.sender == owner, "Only owner can add to whitelist");
+        for (uint i = 0; i < users.length; i++) {
+            isWhitelisted[users[i]] = true;
+        }
     }
 
     // --- Collateral handling helpers ---
