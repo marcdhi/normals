@@ -72,7 +72,7 @@ export function Home() {
             <p className="text-black">Reliable price feeds for accurate market resolution</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
-            <img src="/assets/rif-icon.svg" alt="RIF Icon" className="w-12 h-12 mb-4" />
+            <img src="/assets/rif.png" alt="RIF Icon" className="w-12 h-12 mb-4" />
             <h3 className="font-bold text-xl mb-2 text-black">RIF Support</h3>
             <p className="text-black">Trade using RBTC or RIF as collateral</p>
           </div>
