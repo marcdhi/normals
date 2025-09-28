@@ -16,40 +16,32 @@ export function Home() {
           </span>
         </h1>
 
-        <Button className="mt-8">
+        <p className="text-lg mt-8 mb-8 max-w-2xl text-black">
+          Current prediction markets are stuck in a binary world of "yes/no" outcomes. Normals goes beyond that, letting you trade on the full probability distribution of any event - expressing complex views and capturing the true range of possible outcomes.
+        </p>
+
+        <Button className="mt-4">
           <Link to="/market">Start Trading</Link>
         </Button>
       </section>
 
-      <section className="py-16 px-8">
+      <section className="py-32 px-8">
         <h2 className="text-[2em] md:text-[3em] font-neueMachinaBold mb-8">
           <span className="bg-blue-500 px-4 py-2 text-white">
-            Go Beyond Yes/No
+            How It Works
           </span>
         </h2>
-        <p className="max-w-2xl text-lg mb-8 text-black">
-          Traditional prediction markets are limited to binary outcomes. We're bringing full probability distribution trading to Bitcoin through Rootstock.
-        </p>
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl">
-          <div className="relative">
-            <img 
-              src="/assets/binary-market.svg" 
-              alt="Binary Market Example"
-              className="w-full h-auto rounded-lg shadow-lg"
-            />
-            <div className="absolute top-0 left-0 bg-black/50 text-white px-3 py-1 rounded-tl-lg">
-              Traditional
-            </div>
+        <div className="grid md:grid-cols-2 gap-12 max-w-4xl items-center">
+          <div>
+            <p className="text-lg mb-6 text-black">
+              The core of Normals is a constant function AMM with an L₂ norm invariant, specialized for Normal distributions. Unlike Uniswap's x*y=k, our invariant ensures the "total size" of the market's probability function remains constant.
+            </p>
+            <p className="text-lg mb-6 text-black">
+              For a Normal distribution with standard deviation σ, the L₂ norm is 1/√(2σ√π). This unique property incentivizes traders to shape the market's curve into an honest forecast of the true probability distribution.
+            </p>
           </div>
-          <div className="relative">
-            <img 
-              src="/assets/distribution-market.svg"
-              alt="Distribution Market Example" 
-              className="w-full h-auto rounded-lg shadow-lg"
-            />
-            <div className="absolute top-0 left-0 bg-blue-500/50 text-white px-3 py-1 rounded-tl-lg">
-              Our Approach
-            </div>
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <img src="/assets/graph.png" alt="Normal Distribution Graph" className="w-full rounded" />
           </div>
         </div>
       </section>
@@ -57,24 +49,33 @@ export function Home() {
       <section className="py-16 px-8 bg-gray-50">
         <h2 className="text-[2em] md:text-[3em] font-neueMachinaBold mb-8">
           <span className="bg-purple-500 px-4 py-2 text-white">
-            Built for Bitcoin
+            Built with Modern Stack
           </span>
         </h2>
         <div className="grid md:grid-cols-3 gap-8 max-w-4xl">
           <div className="bg-white p-6 rounded-lg shadow">
-            <img src="/assets/rsk-icon.svg" alt="Rootstock Icon" className="w-12 h-12 mb-4" />
-            <h3 className="font-bold text-xl mb-2 text-black">Rootstock Smart Contracts</h3>
-            <p className="text-black">Advanced DeFi functionality secured by Bitcoin's network</p>
+            <h3 className="font-bold text-xl mb-2 text-black">Smart Contracts</h3>
+            <ul className="list-disc list-inside text-black">
+              <li>Solidity with Foundry</li>
+              <li>OpenZeppelin Contracts</li>
+              <li>PRBMath for fixed-point</li>
+            </ul>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
-            <img src="/assets/pyth-icon.svg" alt="Pyth Icon" className="w-12 h-12 mb-4" />
-            <h3 className="font-bold text-xl mb-2 text-black">Pyth Integration</h3>
-            <p className="text-black">Reliable price feeds for accurate market resolution</p>
+            <h3 className="font-bold text-xl mb-2 text-black">Frontend</h3>
+            <ul className="list-disc list-inside text-black">
+              <li>React</li>
+              <li>viem & wagmi</li>
+              <li>Chart.js visualization</li>
+            </ul>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
-            <img src="/assets/rif.png" alt="RIF Icon" className="w-12 h-12 mb-4" />
-            <h3 className="font-bold text-xl mb-2 text-black">RIF Support</h3>
-            <p className="text-black">Trade using RBTC or RIF as collateral</p>
+            <h3 className="font-bold text-xl mb-2 text-black">Infrastructure</h3>
+            <ul className="list-disc list-inside text-black">
+              <li>Rootstock Testnet</li>
+              <li>Pyth Network Oracles</li>
+              <li>ENS Integration</li>
+            </ul>
           </div>
         </div>
       </section>
