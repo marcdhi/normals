@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 // We import the type and the sd() wrapper function.
 import {SD59x18, sd} from "@prb/math/src/SD59x18.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // The contract now IS an ERC20 token
 contract DistributionMarket is ERC20 {
@@ -18,8 +19,30 @@ contract DistributionMarket is ERC20 {
     SD59x18 public immutable k;
     SD59x18 public immutable b;
 
+    // Pyth price feed identifier (32-byte id) and market expiry timestamp (unix seconds)
+    bytes32 public immutable priceFeedId;
+    uint64 public immutable expiry;
+
     // --- NEW STATE VARIABLE ---
     uint256 public totalCollateral; // Tracks total collateral held in the pool
+
+    // Collateral token address: address(0) means native RBTC; otherwise ERC20 token (e.g., RIF)
+    address public immutable collateralToken;
+
+    // --- NEW DATA STRUCTURES FOR POSITIONS ---
+    struct Term {
+        SD59x18 mean;
+        SD59x18 sigma;
+    }
+
+    struct Leg {
+        Term oldTerm;
+        Term newTerm;
+        bool isOpen;
+    }
+
+    // Mapping from user to their position legs
+    mapping(address => Leg[]) public positionLegs;
 
     // --- Events ---
     event MarketUpdated(SD59x18 newMean, SD59x18 newSigma);
@@ -29,12 +52,18 @@ contract DistributionMarket is ERC20 {
     constructor(
         SD59x18 _k,
         SD59x18 _b,
+        bytes32 _priceFeedId,
+        uint64 _expiry,
         string memory _lpTokenName,
-        string memory _lpTokenSymbol
+        string memory _lpTokenSymbol,
+        address _collateralToken
     ) ERC20(_lpTokenName, _lpTokenSymbol) { // This part sets up the ERC20 token
         owner = msg.sender;
         k = _k;
         b = _b;
+        priceFeedId = _priceFeedId;
+        expiry = _expiry;
+        collateralToken = _collateralToken;
     }
 
     // The initializer sets the remaining variables.
@@ -54,26 +83,24 @@ contract DistributionMarket is ERC20 {
 
     // --- Liquidity Functions ---
 
-    function addLiquidity() external payable {
-        require(msg.value > 0, "Must provide collateral");
+    function addLiquidity(uint256 collateralAmount) external payable {
+        require(collateralAmount > 0, "Must provide collateral");
+        _receiveCollateral(collateralAmount);
 
         uint256 sharesToMint;
-        uint256 totalSupply = totalSupply(); // Get total LP shares from ERC20
+        uint256 totalSupply_ = totalSupply(); // Get total LP shares from ERC20
 
-        if (totalSupply == 0) {
-            // This is the VERY FIRST liquidity provider.
-            // We mint them shares equal to the collateral they provided.
-            sharesToMint = msg.value;
+        if (totalSupply_ == 0) {
+            // First LP gets 1:1 shares
+            sharesToMint = collateralAmount;
         } else {
-            // For all subsequent providers, we mint shares proportionally
-            // to keep the share price fair.
-            sharesToMint = (msg.value * totalSupply) / totalCollateral;
+            sharesToMint = (collateralAmount * totalSupply_) / totalCollateral;
         }
 
         require(sharesToMint > 0, "Insufficient amount for shares");
 
         // Update the total collateral in the pool
-        totalCollateral += msg.value;
+        totalCollateral += collateralAmount;
 
         // Mint the new LP shares directly to the provider
         _mint(msg.sender, sharesToMint);
@@ -94,7 +121,7 @@ contract DistributionMarket is ERC20 {
         _burn(msg.sender, sharesToBurn);
 
         // Send the collateral back to them
-        payable(msg.sender).transfer(collateralToReturn);
+        _sendCollateral(msg.sender, collateralToReturn);
     }
 
     /**
@@ -130,25 +157,23 @@ function quoteCollateral(
     SD59x18 oldMean = mean;
     SD59x18 oldSigma = standardDeviation;
 
-    // Start our search for the minimum at the new mean
-    argminX = newMean;
+    // --- THIS IS THE FIX ---
+    // Instead of starting at the newMean (where the gradient might be zero),
+    // we start one standard deviation to the side to ensure our search begins on a slope.
+    argminX = newMean.add(oldSigma);
     
     // A small learning rate for our descent
     SD59x18 learningRate = sd(1e16); // 0.01
 
     // Perform a fixed number of iterations to find the minimum
-    // More iterations = more accuracy, but much more gas! 10-15 is a reasonable start.
+    // The rest of the function is perfect and does not need to change.
     for (uint i = 0; i < 15; i++) {
-        // Calculate the derivative (the slope of the curve) at our current point
         SD59x18 deriv_g = _pdfDerivative(argminX, newMean, newSigma);
         SD59x18 deriv_f = _pdfDerivative(argminX, oldMean, oldSigma);
         SD59x18 gradient = deriv_g.sub(deriv_f);
-
-        // Move our guess in the opposite direction of the slope
         argminX = argminX.sub(gradient.mul(learningRate));
     }
 
-    // Now that we've found the point of minimum (argminX), calculate the value there
     SD59x18 value_g = _pdf(argminX, newMean, newSigma);
     SD59x18 value_f = _pdf(argminX, oldMean, oldSigma);
     SD59x18 minVal = value_g.sub(value_f);
@@ -166,6 +191,8 @@ function quoteCollateral(
         SD59x18 newSigma,
         SD59x18 argminX
     ) public payable {
+        SD59x18 oldMean = mean;
+        SD59x18 oldSigma = standardDeviation;
         // 1. Verify the provided argminX and get the required collateral.
         // This is much cheaper than re-running the full quoteCollateral search.
         uint256 requiredCollateral = _verifyAndGetCollateral(
@@ -173,24 +200,117 @@ function quoteCollateral(
             newSigma,
             argminX
         );
+        
+        // 2. Receive collateral (native or ERC20). Enforces exact msg.value for native.
+        _receiveCollateral(requiredCollateral);
 
-        // 2. Check if the user has sent enough RBTC.
-        require(
-            msg.value >= requiredCollateral,
-            "Insufficient collateral provided"
-        );
+        // Add the trader's posted collateral to the pool's total
+        totalCollateral += requiredCollateral;
 
         // 3. Update the market state.
         mean = newMean;
         standardDeviation = newSigma;
 
-        // 4. Refund any excess collateral.
-        if (msg.value > requiredCollateral) {
-            payable(msg.sender).transfer(msg.value - requiredCollateral);
-        }
-
-        // 5. Emit an event.
+        // 4. Emit an event.
         emit MarketUpdated(newMean, newSigma);
+
+        // 5. Store leg for user's position history
+        _storeLeg(oldMean, oldSigma, newMean, newSigma);
+    }
+
+    // --- Collateral handling helpers ---
+    function _receiveCollateral(uint256 amount) private {
+        if (collateralToken == address(0)) {
+            require(msg.value == amount, "Incorrect RBTC amount sent");
+        } else {
+            require(msg.value == 0, "Do not send RBTC to a token market");
+            IERC20(collateralToken).transferFrom(msg.sender, address(this), amount);
+        }
+    }
+
+    function _sendCollateral(address to, uint256 amount) private {
+        if (collateralToken == address(0)) {
+            payable(to).transfer(amount);
+        } else {
+            IERC20(collateralToken).transfer(to, amount);
+        }
+    }
+
+    // Store a new position leg for msg.sender
+    function _storeLeg(
+        SD59x18 oldMean,
+        SD59x18 oldSigma,
+        SD59x18 newMean,
+        SD59x18 newSigma
+    ) private {
+        positionLegs[msg.sender].push(
+            Leg({
+                oldTerm: Term({mean: oldMean, sigma: oldSigma}),
+                newTerm: Term({mean: newMean, sigma: newSigma}),
+                isOpen: true
+            })
+        );
+    }
+
+    /**
+     * @notice Returns the count of position legs for a user
+     */
+    function getPositionLegCount(address user) external view returns (uint256) {
+        return positionLegs[user].length;
+    }
+
+    /**
+     * @notice Returns a position leg in a simple tuple form for easy frontend decoding
+     */
+    function getPositionLeg(address user, uint256 index)
+        external
+        view
+        returns (
+            SD59x18 oldMean,
+            SD59x18 oldSigma,
+            SD59x18 newMean,
+            SD59x18 newSigma,
+            bool isOpen
+        )
+    {
+        Leg memory leg = positionLegs[user][index];
+        return (
+            leg.oldTerm.mean,
+            leg.oldTerm.sigma,
+            leg.newTerm.mean,
+            leg.newTerm.sigma,
+            leg.isOpen
+        );
+    }
+
+    /**
+     * @notice Quotes the cost to close a single position leg.
+     * "Closing" means trading from the CURRENT market state back to the state BEFORE the leg was created.
+     */
+    function quoteClosePosition(uint256 legIndex)
+        external
+        view
+        returns (uint256 collateral, SD59x18 argminX, SD59x18 expectedRefund)
+    {
+        require(legIndex < positionLegs[msg.sender].length, "Invalid leg index");
+        Leg memory legToClose = positionLegs[msg.sender][legIndex];
+        require(legToClose.isOpen, "Leg is already closed");
+
+        // Target is the state BEFORE that leg was created
+        SD59x18 targetMean = legToClose.oldTerm.mean;
+        SD59x18 targetSigma = legToClose.oldTerm.sigma;
+
+        // Quote collateral from current state to target state
+        (collateral, argminX) = quoteCollateral(targetMean, targetSigma);
+
+        // Simplified expected refund estimate
+        (uint256 riskBefore, ) = quoteCollateral(legToClose.newTerm.mean, legToClose.newTerm.sigma);
+        if (riskBefore > collateral) {
+            expectedRefund = sd(int256(riskBefore - collateral));
+        } else {
+            expectedRefund = sd(0);
+        }
+        return (collateral, argminX, expectedRefund);
     }
 
     // --- Internal Math Helpers ---

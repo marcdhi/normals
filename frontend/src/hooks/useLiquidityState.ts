@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { marketAbi } from "@/lib/web3Config";
 import { formatEther, parseEther } from "viem";
+import { abi as ERC20Abi } from "@/assets/abis/ERC20abi";
 
 // Types are inferred by return shape; explicit interface retained if needed later
 
@@ -9,6 +10,14 @@ export function useLiquidityState(marketAddress: `0x${string}`) {
   const { address: userAddress } = useAccount();
 
   const contractBase = useMemo(() => ({ address: marketAddress, abi: marketAbi } as const), [marketAddress]);
+
+  // Collateral token for this market
+  const { data: collateralTokenData } = useReadContract({
+    ...contractBase,
+    functionName: "collateralToken",
+  });
+  const collateralToken = (collateralTokenData as `0x${string}`) || ("0x0000000000000000000000000000000000000000" as `0x${string}`);
+  const isNative = collateralToken.toLowerCase() === "0x0000000000000000000000000000000000000000";
 
   const { data: userSharesData, refetch: refetchUserShares } = useReadContract({
     ...contractBase,
@@ -25,6 +34,15 @@ export function useLiquidityState(marketAddress: `0x${string}`) {
   const { data: totalCollateralData, refetch: refetchTotalCollateral } = useReadContract({
     ...contractBase,
     functionName: "totalCollateral",
+  });
+
+  // Allowance for ERC20 collateral (if applicable)
+  const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
+    address: collateralToken,
+    abi: ERC20Abi,
+    functionName: "allowance",
+    args: userAddress && !isNative ? [userAddress, marketAddress] : undefined,
+    query: { enabled: !!userAddress && !isNative },
   });
 
   const userShares = (userSharesData as bigint) ?? 0n;
@@ -46,14 +64,25 @@ export function useLiquidityState(marketAddress: `0x${string}`) {
   const { data: writeHash, writeContract, isPending: isWriting } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: writeHash });
 
-  const addLiquidity = (amountRbtc: string) => {
-    if (!amountRbtc || Number(amountRbtc) <= 0) return;
-    const value = parseEther(amountRbtc);
+  const addLiquidity = (amount: string) => {
+    if (!amount || Number(amount) <= 0) return;
+    const value = parseEther(amount);
     writeContract({
       ...contractBase,
       functionName: "addLiquidity",
-      args: [],
-      value,
+      args: [value],
+      value: isNative ? value : 0n,
+    });
+  };
+
+  const approve = (amount: string) => {
+    if (isNative || !amount || Number(amount) <= 0) return;
+    const value = parseEther(amount);
+    writeContract({
+      address: collateralToken,
+      abi: ERC20Abi,
+      functionName: "approve",
+      args: [marketAddress, value],
     });
   };
 
@@ -73,8 +102,9 @@ export function useLiquidityState(marketAddress: `0x${string}`) {
       refetchUserShares();
       refetchTotalShares();
       refetchTotalCollateral();
+      refetchAllowance();
     }
-  }, [isConfirmed, refetchUserShares, refetchTotalShares, refetchTotalCollateral]);
+  }, [isConfirmed, refetchUserShares, refetchTotalShares, refetchTotalCollateral, refetchAllowance]);
 
   return {
     userAddress,
@@ -85,10 +115,14 @@ export function useLiquidityState(marketAddress: `0x${string}`) {
       poolSharePercent,
       userShareValueWei,
       userShareValueRbtc: formatEther(userShareValueWei),
+      collateralToken,
+      isNative,
+      allowance: (allowanceData as bigint) ?? 0n,
     },
     writes: {
       addLiquidity,
       removeLiquidity,
+      approve,
     },
     status: {
       isWriting,

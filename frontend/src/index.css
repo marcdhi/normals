@@ -33,7 +33,7 @@
     @apply border-border;
   }
   body {
-    @apply text-foreground;
+    @apply text-foreground font-neueMachinaMedium;
   }
 }
 
@@ -61,6 +61,21 @@
   color: black;
   font-size: larger;
   @apply bg-fuchsia-500 font-neueMachinaBold;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-neueMachinaBold;
+  }
+  .font-display {
+    @apply font-neueMachinaBold;
+  }
+  .font-body {
+    @apply font-neueMachinaMedium;
+  }
+  .font-light {
+    @apply font-neueMachinaLight;
+  }
 }
 
 .inner-scroller {

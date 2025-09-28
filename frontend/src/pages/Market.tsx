@@ -10,9 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useLiquidityState } from "@/hooks/useLiquidityState";
 import { useEffect, useMemo, useState } from "react";
-import { usePublicClient } from "wagmi";
+import { usePublicClient, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { marketAbi } from "@/lib/web3Config";
 import { parseEther } from "viem";
+import { fromSD59x18, toSD59x18 } from "@/lib/utils/sd59x18";
+import { abi as ERC20Abi } from "@/assets/abis/ERC20abi";
 
 export function Market() {
   const { address } = useParams();
@@ -30,17 +32,123 @@ export function Market() {
     hash,
   } = useMarketState(marketAddress);
 
-  const { reads, writes, status } = useLiquidityState(marketAddress);
+  const { reads, writes, status, userAddress } = useLiquidityState(marketAddress);
 
   const [addAmount, setAddAmount] = useState("");
   const [burnAmount, setBurnAmount] = useState("");
   const [expectedShares, setExpectedShares] = useState("0");
+  const [pythSymbol, setPythSymbol] = useState("");
+  const [legs, setLegs] = useState<Array<{ index: number; oldMean: bigint; oldSigma: bigint; newMean: bigint; newSigma: bigint; isOpen: boolean }>>([]);
+  const [selectedLegIndex, setSelectedLegIndex] = useState<number | null>(null);
+  const [quoteClose, setQuoteClose] = useState<{ collateral?: bigint; argminX?: bigint; expectedRefund?: bigint } | null>(null);
+  const [isQuotingClose, setIsQuotingClose] = useState(false);
+  const [tradeFeeWei, setTradeFeeWei] = useState<bigint | null>(null);
+  const [closeFeeWei, setCloseFeeWei] = useState<bigint | null>(null);
+  const { data: closeHash, writeContract: writeClose, isPending: isClosePending } = useWriteContract();
+  const { isLoading: isCloseConfirming, isSuccess: isCloseConfirmed } = useWaitForTransactionReceipt({ hash: closeHash });
 
   const publicClient = usePublicClient();
   const contractForReads = useMemo(() => ({
     address: marketAddress,
     abi: marketAbi,
   } as const), [marketAddress]);
+
+  // --- Additional reads for lifecycle and metadata ---
+  const { data: tokenNameData } = useReadContract({
+    ...contractForReads,
+    functionName: "name",
+  });
+  const { data: tokenSymbolData } = useReadContract({
+    ...contractForReads,
+    functionName: "symbol",
+  });
+  const { data: expiryData } = useReadContract({
+    ...contractForReads,
+    functionName: "expiry",
+  });
+  const { data: priceFeedIdData } = useReadContract({
+    ...contractForReads,
+    functionName: "priceFeedId",
+  });
+
+  // Collateral token symbol for display
+  const { data: collateralSymbolData } = useReadContract({
+    address: reads.collateralToken,
+    abi: ERC20Abi,
+    functionName: "symbol",
+    query: { enabled: !reads.isNative },
+  });
+  const collateralSymbol = reads.isNative ? 'RBTC' : ((collateralSymbolData as string) || 'TOKEN');
+
+  const tokenName = (tokenNameData as string) || "";
+  const tokenSymbol = (tokenSymbolData as string) || "";
+  const expiry = expiryData ? Number(expiryData as bigint) : 0;
+  const priceFeedId = (priceFeedIdData as `0x${string}`) || ("" as `0x${string}`);
+
+  const lifecycle = useMemo(() => {
+    if (!expiry) return { status: "-", label: "Unknown", detail: "-" };
+    const now = Math.floor(Date.now() / 1000);
+    const isExpired = now >= expiry;
+    const delta = Math.abs(expiry - now);
+    const days = Math.floor(delta / 86400);
+    const hours = Math.floor((delta % 86400) / 3600);
+    const mins = Math.floor((delta % 3600) / 60);
+    const human = `${days}d ${hours}h ${mins}m`;
+    return isExpired
+      ? { status: "Expired", label: "Expired", detail: `${human} ago` }
+      : { status: "Active", label: "Active", detail: `in ${human}` };
+  }, [expiry]);
+
+  const expiryDateText = useMemo(() => {
+    if (!expiry) return "-";
+    try { return new Date(expiry * 1000).toUTCString(); } catch { return "-"; }
+  }, [expiry]);
+
+  const [copiedId, setCopiedId] = useState(false);
+  const copyPriceFeedId = async () => {
+    if (!priceFeedId) return;
+    try {
+      await navigator.clipboard.writeText(priceFeedId);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 1200);
+    } catch {}
+  };
+
+  // Resolve Pyth symbol from priceFeedId for TradingView deep link
+  useEffect(() => {
+    let active = true;
+    const fetchSymbol = async () => {
+      try {
+        if (!priceFeedId) return;
+        const url = `https://hermes.pyth.network/v2/price_feeds?ids[]=${priceFeedId}`;
+        const res = await fetch(url, { headers: { accept: 'application/json' } });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!active) return;
+        const first = Array.isArray(json) && json.length ? json[0] : null;
+        const raw = first?.attributes?.symbol || first?.symbol || "";
+        if (raw) setPythSymbol(String(raw));
+      } catch {
+        // ignore
+      }
+    };
+    fetchSymbol();
+    return () => { active = false; };
+  }, [priceFeedId]);
+
+  const tradingViewDisplay = useMemo(() => {
+    if (!pythSymbol) return "";
+    const withoutPrefix = pythSymbol.includes('.') ? pythSymbol.split('.').slice(1).join('.') : pythSymbol;
+    const clean = withoutPrefix.replace(/\//g, '').replace(/[^A-Za-z0-9]/g, '');
+    return clean ? `PYTH:${clean}` : "";
+  }, [pythSymbol]);
+
+  const tradingViewUrl = useMemo(() => {
+    if (!tradingViewDisplay) return "";
+    const [, sym] = tradingViewDisplay.split(':');
+    if (!sym) return "";
+    return `https://www.tradingview.com/symbols/PYTH-${sym}/`;
+  }, [tradingViewDisplay]);
 
   useEffect(() => {
     const handler = setTimeout(async () => {
@@ -64,6 +172,93 @@ export function Market() {
     }, 300);
     return () => clearTimeout(handler);
   }, [addAmount, publicClient, contractForReads]);
+
+  // Estimate network fee for proposed trade (gas * gasPrice in RBTC)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!publicClient || !quote.collateral || !quote.argminX) { setTradeFeeWei(null); return; }
+        const gas = await publicClient.estimateContractGas({
+          ...contractForReads,
+          functionName: "trade",
+          args: [toSD59x18(proposedState.mu), toSD59x18(proposedState.sigma), quote.argminX],
+          value: reads.isNative ? quote.collateral : 0n,
+        });
+        const gasPrice = await publicClient.getGasPrice();
+        setTradeFeeWei(gas * gasPrice);
+      } catch {
+        setTradeFeeWei(null);
+      }
+    })();
+  }, [publicClient, contractForReads, proposedState.mu, proposedState.sigma, quote.collateral, quote.argminX, reads.isNative]);
+
+  // Estimate network fee for closing selected leg
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!publicClient || !quoteClose?.argminX || selectedLegIndex === null) { setCloseFeeWei(null); return; }
+        const leg = legs.find(l => l.index === selectedLegIndex);
+        if (!leg) { setCloseFeeWei(null); return; }
+        const gas = await publicClient.estimateContractGas({
+          ...contractForReads,
+          functionName: "trade",
+          args: [leg.oldMean, leg.oldSigma, quoteClose.argminX],
+          value: reads.isNative ? (quoteClose.collateral ?? 0n) : 0n,
+        });
+        const gasPrice = await publicClient.getGasPrice();
+        setCloseFeeWei(gas * gasPrice);
+      } catch {
+        setCloseFeeWei(null);
+      }
+    })();
+  }, [publicClient, contractForReads, selectedLegIndex, legs, quoteClose?.argminX, quoteClose?.collateral, reads.isNative]);
+
+  // Fetch user position legs
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!publicClient || !userAddress) return;
+        const count = await publicClient.readContract({ ...contractForReads, functionName: "getPositionLegCount", args: [userAddress] });
+        const n = Number(count as bigint);
+        const out: Array<{ index: number; oldMean: bigint; oldSigma: bigint; newMean: bigint; newSigma: bigint; isOpen: boolean }> = [];
+        for (let i = 0; i < n; i++) {
+          const res = await publicClient.readContract({ ...contractForReads, functionName: "getPositionLeg", args: [userAddress, BigInt(i)] });
+          const [oldMean, oldSigma, newMean, newSigma, isOpen] = res as [bigint, bigint, bigint, bigint, boolean];
+          out.push({ index: i, oldMean, oldSigma, newMean, newSigma, isOpen });
+        }
+        setLegs(out);
+      } catch (e) {
+        setLegs([]);
+      }
+    })();
+  }, [publicClient, userAddress, contractForReads, isConfirmed]);
+
+  const handleQuoteClose = async () => {
+    if (selectedLegIndex === null) return;
+    setIsQuotingClose(true);
+    try {
+      const res = await publicClient!.readContract({ ...contractForReads, functionName: "quoteClosePosition", args: [BigInt(selectedLegIndex)] });
+      const [collateral, argminX, expectedRefund] = res as [bigint, bigint, bigint];
+      setQuoteClose({ collateral, argminX, expectedRefund });
+    } catch (e) {
+      setQuoteClose(null);
+    } finally {
+      setIsQuotingClose(false);
+    }
+  };
+
+  const handleClosePosition = () => {
+    if (selectedLegIndex === null || !quoteClose?.collateral || !quoteClose?.argminX) return;
+    const leg = legs.find(l => l.index === selectedLegIndex);
+    if (!leg) return;
+    // Execute trade to target (oldTerm) using quoted argminX and required collateral as msg.value
+    writeClose({
+      ...contractForReads,
+      functionName: "trade",
+      args: [leg.oldMean, leg.oldSigma, quoteClose.argminX!],
+      value: quoteClose.collateral!,
+    });
+  };
 
   const handleMuChange = (value: number[]) => {
     setProposedState(prev => ({ ...prev, mu: value[0] }));
@@ -96,6 +291,7 @@ export function Market() {
             <TabsList className="bg-white border border-black">
               <TabsTrigger value="trade">Trade</TabsTrigger>
               <TabsTrigger value="liquidity">Add Liquidity</TabsTrigger>
+              <TabsTrigger value="positions">Positions</TabsTrigger>
             </TabsList>
 
             <TabsContent value="trade">
@@ -139,26 +335,46 @@ export function Market() {
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium text-black">Collateral Required</span>
-                  <span className="text-2xl font-semibold text-black">
-                    {quote.collateral ? `${parseFloat(formatEther(quote.collateral)).toFixed(6)}` : "0.000000"} RBTC
+                  <span className="text-xl font-semibold text-black">
+                    {quote.collateral ? `${parseFloat(formatEther(quote.collateral)).toFixed(6)}` : "0.000000"} {collateralSymbol}
                   </span>
                 </div>
                 <div className="text-xs text-black space-y-1">
-                  <div className="flex justify-between"><span>FEES (EST)</span><span>-</span></div>
-                  <div className="flex justify-between"><span>MIN F(X)</span><span>-</span></div>
-                  <div className="flex justify-between"><span>ARG MINX</span><span>-</span></div>
+                  <div className="flex justify-between"><span>NETWORK FEE (EST)</span><span>{tradeFeeWei ? `${parseFloat(formatEther(tradeFeeWei)).toFixed(6)} RBTC` : '-'}</span></div>
+                  <div className="flex justify-between">
+                    <span>MIN Δf(x)</span>
+                    <span>
+                      {quote.collateral ? `-${parseFloat(formatEther(quote.collateral)).toFixed(6)} ${collateralSymbol}` : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ARG MINX</span>
+                    <span>
+                      {quote.argminX ? fromSD59x18(quote.argminX as bigint).toFixed(6) : "-"}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-xs text-black mt-2">Collateral secures against maximum potential loss.</p>
               </div>
               
               <div className="mt-6">
+                {!reads.isNative && (
+                  <div className="flex gap-2">
+                    <Button className="text-white" type="button" disabled={!quote.collateral || status.isWriting || status.isConfirming} onClick={() => writes.approve(quote.collateral ? formatEther(quote.collateral) : '0')}>
+                      Approve {collateralSymbol}
+                    </Button>
+                  </div>
+                )}
                 <Button 
                   onClick={executeTrade} 
-                  disabled={!quote.collateral || isExecuting}
-                  className="mt-8 text-white w-full"
+                  disabled={!quote.collateral || isExecuting || (!reads.isNative && (!!quote.collateral && reads.allowance < quote.collateral))}
+                  className="mt-2 text-white w-full"
                 >
                   {isExecuting ? 'Proposing...' : 'Propose new distribution'}
                 </Button>
+                {!reads.isNative && (
+                  <p className="text-xs text-black mt-1">Approved: {parseFloat(formatEther(reads.allowance)).toFixed(6)} {collateralSymbol}</p>
+                )}
                 {isExecuting && <p className="text-center mt-2 text-sm text-black">Waiting for confirmation...</p>}
                 {isConfirmed && hash && (
                   <div className="mt-4 text-center">
@@ -176,10 +392,94 @@ export function Market() {
               </div>
             </TabsContent>
 
+          <TabsContent value="positions">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold mb-2 text-black">Your Positions</h2>
+              {!userAddress && <p className="text-sm text-black">Connect wallet to view positions.</p>}
+              {userAddress && (
+                <>
+                  {legs.length === 0 ? (
+                    <p className="text-sm text-black">No positions yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {legs.map((leg) => (
+                        <label key={leg.index} className={`flex items-center justify-between p-2 border border-black ${selectedLegIndex===leg.index? 'bg-black/5':''}`}>
+                          <div className="text-xs text-black space-y-1">
+                            <div className="flex gap-3">
+                              <span className="font-semibold">Leg #{leg.index}</span>
+                              <span className={leg.isOpen? 'text-green-700':'text-gray-500'}>{leg.isOpen? 'Open':'Closed'}</span>
+                            </div>
+                            <div>Old μ: {fromSD59x18(leg.oldMean).toFixed(4)} | Old σ: {fromSD59x18(leg.oldSigma).toFixed(4)}</div>
+                            <div>New μ: {fromSD59x18(leg.newMean).toFixed(4)} | New σ: {fromSD59x18(leg.newSigma).toFixed(4)}</div>
+                          </div>
+                          <input
+                            type="radio"
+                            name="selectedLeg"
+                            checked={selectedLegIndex===leg.index}
+                            onChange={() => {
+                              setSelectedLegIndex(leg.index);
+                              setProposedState({ mu: fromSD59x18(leg.newMean), sigma: fromSD59x18(leg.newSigma) });
+                            }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex gap-2">
+                    <Button className="text-white" type="button" disabled={selectedLegIndex===null || isQuotingClose} onClick={handleQuoteClose}>
+                      {isQuotingClose? 'Quoting…':'Quote Close'}
+                    </Button>
+                  </div>
+
+                  {quoteClose && (
+                    <div className="mt-3 p-3 border border-black bg-white">
+                      <div className="text-sm text-black space-y-1">
+                        <div className="flex justify-between"><span>Collateral to Close</span><span>{parseFloat(formatEther(quoteClose.collateral!)).toFixed(6)} {collateralSymbol}</span></div>
+                        <div className="flex justify-between"><span>Expected Refund</span><span>{fromSD59x18(quoteClose.expectedRefund!).toFixed(6)} {collateralSymbol}</span></div>
+                        <div className="flex justify-between"><span>Arg MinX</span><span>{fromSD59x18(quoteClose.argminX!).toFixed(6)}</span></div>
+                        <div className="flex justify-between"><span>Network Fee (est)</span><span>{closeFeeWei ? `${parseFloat(formatEther(closeFeeWei)).toFixed(6)} RBTC` : '-'}</span></div>
+                      </div>
+                      <div className="mt-3">
+                        {!reads.isNative && (
+                          <div className="flex gap-2 mb-2">
+                            <Button className="text-white" type="button" disabled={isClosePending || isCloseConfirming} onClick={() => writes.approve(quoteClose?.collateral ? formatEther(quoteClose.collateral) : '0')}>
+                              Approve {collateralSymbol}
+                            </Button>
+                          </div>
+                        )}
+                        <Button className="w-full text-white" type="button" disabled={isClosePending || isCloseConfirming || (!reads.isNative && (!!quoteClose?.collateral && reads.allowance < quoteClose.collateral))} onClick={() => {
+                          // Use correct msg.value for native vs ERC20
+                          if (selectedLegIndex === null || !quoteClose?.collateral || !quoteClose?.argminX) return;
+                          const leg = legs.find(l => l.index === selectedLegIndex);
+                          if (!leg) return;
+                          writeClose({
+                            ...contractForReads,
+                            functionName: "trade",
+                            args: [leg.oldMean, leg.oldSigma, quoteClose.argminX!],
+                            value: reads.isNative ? quoteClose.collateral! : 0n,
+                          });
+                        }}>
+                          {isCloseConfirming ? 'Closing…' : 'Close Position'}
+                        </Button>
+                        {isCloseConfirming && <p className="text-center mt-2 text-sm text-black">Waiting for confirmation...</p>}
+                        {isCloseConfirmed && closeHash && (
+                          <div className="mt-2 text-center">
+                            <a href={`https://explorer.testnet.rootstock.io/tx/${closeHash}`} target="_blank" rel="noreferrer" className="text-blue-600 text-xs underline">View close tx</a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </TabsContent>
+
             <TabsContent value="liquidity">
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold mb-2 text-black">Add Liquidity</h2>
-                <label className="text-sm text-black">Amount of RBTC to provide</label>
+                <label className="text-sm text-black">Amount of {reads.isNative ? 'RBTC' : collateralSymbol} to provide</label>
                 <Input
                   placeholder="0.0"
                   value={addAmount}
@@ -188,28 +488,40 @@ export function Market() {
                   min="0"
                   step="0.000000000000000001"
                 />
-                <Button className="w-full text-white" disabled={!addAmount || status.isWriting || status.isConfirming} onClick={() => writes.addLiquidity(addAmount)}>
-                  {status.isConfirming ? 'Adding...' : 'Add Liquidity'}
-                </Button>
+                {!reads.isNative && (
+                  <div className="flex gap-2">
+                    <Button className="text-white" disabled={!addAmount || status.isWriting || status.isConfirming} onClick={() => writes.approve(addAmount)}>
+                      Approve
+                    </Button>
+                    <Button className="text-white" disabled={!addAmount || status.isWriting || status.isConfirming} onClick={() => writes.addLiquidity(addAmount)}>
+                      {status.isConfirming ? 'Adding...' : 'Add Liquidity'}
+                    </Button>
+                  </div>
+                )}
+                {reads.isNative && (
+                  <Button className="w-full text-white" disabled={!addAmount || status.isWriting || status.isConfirming} onClick={() => writes.addLiquidity(addAmount)}>
+                    {status.isConfirming ? 'Adding...' : 'Add Liquidity'}
+                  </Button>
+                )}
 
                 <div className="mt-2 text-sm text-black">
-                  <div className="flex justify-between"><span>You will receive (approx):</span><span>{Number(expectedShares).toFixed(6)} LP Shares</span></div>
+                  <div className="flex justify-between"><span>You will receive (approx):</span><span>{Number(expectedShares).toFixed(6)} {tokenSymbol ? `${tokenSymbol}` : 'LP Tokens'}</span></div>
                 </div>
 
                 <div className="border-t pt-4">
                   <h3 className="text-lg font-semibold text-black mb-2">Your Liquidity Position</h3>
                   <div className="text-sm text-black space-y-1">
-                    <div className="flex justify-between"><span>Your LP Shares</span><span>{reads.userShares.toString()}</span></div>
-                    <div className="flex justify-between"><span>Total LP Shares</span><span>{reads.totalShares.toString()}</span></div>
-                    <div className="flex justify-between"><span>Total Collateral in Pool</span><span>{parseFloat(formatEther(reads.totalCollateral)).toFixed(6)} RBTC</span></div>
+                    <div className="flex justify-between"><span>Your {tokenSymbol ? `${tokenSymbol}` : 'LP Tokens'}</span><span>{parseFloat(formatEther(reads.userShares)).toFixed(6)}</span></div>
+                    <div className="flex justify-between"><span>Total {tokenSymbol ? `${tokenSymbol} Supply` : 'LP Supply'}</span><span>{parseFloat(formatEther(reads.totalShares)).toFixed(6)}</span></div>
+                    <div className="flex justify-between"><span>Total Collateral in Pool</span><span>{parseFloat(formatEther(reads.totalCollateral)).toFixed(6)} {collateralSymbol}</span></div>
                     <div className="flex justify-between"><span>Your Pool Share %</span><span>{reads.poolSharePercent.toFixed(6)}%</span></div>
-                    <div className="flex justify-between"><span>Value of Your Shares</span><span>{parseFloat(reads.userShareValueRbtc).toFixed(6)} RBTC</span></div>
+                    <div className="flex justify-between"><span>Value of Your Shares</span><span>{parseFloat(reads.userShareValueRbtc).toFixed(6)} {collateralSymbol}</span></div>
                   </div>
                 </div>
 
                 <div className="border-t pt-4">
                   <h3 className="text-lg font-semibold text-black mb-2">Remove Liquidity</h3>
-                  <label className="text-sm text-black">Shares to burn</label>
+                  <label className="text-sm text-black">{tokenSymbol ? `${tokenSymbol} to burn` : 'LP Tokens to burn'}</label>
                   <Input
                     placeholder="0"
                     value={burnAmount}
@@ -227,19 +539,55 @@ export function Market() {
         </div>
       </div>
        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Placeholder for STIFFNESS, CAP & SCALE, LIFECYCLE */}
-            <div className="bg-white p-4 border border-black relative after:content-[''] after:absolute after:h-full after:w-full after:border after:border-black after:bg-black after:top-[6px] after:left-2 after:z-[-1]">
-                <h3 className="font-semibold mb-2 text-black">STIFFNESS (LOCAL)</h3>
-                <p className="text-sm text-black">Data not available from contract.</p>
-            </div>
-            <div className="bg-white p-4 border border-black relative after:content-[''] after:absolute after:h-full after:w-full after:border after:border-black after:bg-black after:top-[6px] after:left-2 after:z-[-1]">
-                <h3 className="font-semibold mb-2 text-black">CAP & SCALE (Λ)</h3>
-                 <p className="text-sm text-black">Data not available from contract.</p>
-            </div>
-            <div className="bg-white p-4 border border-black relative after:content-[''] after:absolute after:h-full after:w-full after:border after:border-black after:bg-black after:top-[6px] after:left-2 after:z-[-1]">
-                <h3 className="font-semibold mb-2 text-black">LIFECYCLE</h3>
-                 <p className="text-sm text-black">Data not available from contract.</p>
-            </div>
+          {/* LP Token Metadata */}
+          <div className="bg-white p-4 border border-black relative after:content-[''] after:absolute after:h-full after:w-full after:border after:border-black after:bg-black after:top-[6px] after:left-2 after:z-[-1]">
+              <h3 className="font-semibold mb-2 text-black">LP TOKEN</h3>
+              <div className="text-sm text-black space-y-1">
+                <div className="flex justify-between"><span>Name</span><span className="ml-3 truncate max-w-[55%]" title={tokenName}>{tokenName || '-'}</span></div>
+                <div className="flex justify-between"><span>Symbol</span><span>{tokenSymbol || '-'}</span></div>
+                <div className="flex justify-between"><span>Token Address</span><span className="ml-3 truncate max-w-[55%]" title={marketAddress}>{marketAddress}</span></div>
+              </div>
+          </div>
+          {/* Oracle / Price Feed */}
+          <div className="bg-white p-4 border border-black relative after:content-[''] after:absolute after:h-full after:w-full after:border after:border-black after:bg-black after:top-[6px] after:left-2 after:z-[-1]">
+              <h3 className="font-semibold mb-2 text-black">ORACLE</h3>
+              <div className="text-sm text-black space-y-2">
+                <div className="flex flex-col">
+                  <span className="mb-1">Pyth Price Feed ID</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="text-xs break-all">{priceFeedId || '-'}</code>
+                    {priceFeedId && (
+                      <button onClick={copyPriceFeedId} className="px-2 py-1 border border-black bg-white hover:bg-black/5 text-xs">
+                        {copiedId ? 'Copied' : 'Copy'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {priceFeedId && (
+                  <a
+                    className="text-xs text-blue-600 underline"
+                    href={`https://hermes.pyth.network/v2/updates/price/latest?ids[]=${priceFeedId}`}
+                    target="_blank" rel="noreferrer"
+                  >View latest price update</a>
+                )}
+                {tradingViewUrl && (
+                  <a
+                    className="block text-xs text-blue-600 underline"
+                    href={tradingViewUrl}
+                    target="_blank" rel="noreferrer"
+                  >Open in TradingView ({tradingViewDisplay})</a>
+                )}
+              </div>
+          </div>
+          {/* Lifecycle */}
+          <div className="bg-white p-4 border border-black relative after:content-[''] after:absolute after:h-full after:w-full after:border after:border-black after:bg-black after:top-[6px] after:left-2 after:z-[-1]">
+              <h3 className="font-semibold mb-2 text-black">LIFECYCLE</h3>
+              <div className="text-sm text-black space-y-1">
+                <div className="flex justify-between"><span>Status</span><span>{lifecycle.label}</span></div>
+                <div className="flex justify-between"><span>Expiry (UTC)</span><span className="ml-3 truncate max-w-[55%]" title={expiryDateText}>{expiryDateText}</span></div>
+                <div className="flex justify-between"><span>{lifecycle.status === 'Expired' ? 'Expired' : 'Expires'}</span><span>{lifecycle.detail}</span></div>
+              </div>
+          </div>
         </div>
     </section>
   );

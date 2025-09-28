@@ -26,9 +26,16 @@ contract Deploy is Script {
         SD59x18 b = sd(100 * 1e18);
         string memory description = "Bitcoin (BTC) Price at end of 2025";
         
+        // Pyth BTC/USD price id and expiry (Dec 31, 2025 00:00:00 UTC)
+        bytes32 priceFeedId = 0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43;
+        uint64 expiry = 1767139200;
+        
         // --- NEW PARAMETERS FOR THE LP TOKEN ---
         string memory lpTokenName = "Normals BTC 2025 LP Token";
         string memory lpTokenSymbol = "NORM-BTC-LP";
+
+        // Collateral token (address(0) for native RBTC; set to RIF address for RIF markets)
+        address collateralToken = address(0);
 
         // Call the updated createMarket function with the new arguments
         factory.createMarket(
@@ -36,6 +43,9 @@ contract Deploy is Script {
             initialSigma,
             k,
             b,
+            priceFeedId,
+            expiry,
+            collateralToken,
             description,
             lpTokenName,
             lpTokenSymbol
