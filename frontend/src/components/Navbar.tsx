@@ -11,9 +11,9 @@ export default function Navbar(): JSX.Element {
         </span>
       </Link>
       <div className="flex items-center gap-4">
-        <Link to="/admin" className="text-black">
+        {/* <Link to="/admin" className="text-black">
           Admin
-        </Link>
+        </Link> */}
         <ConnectButton/>
       </div>
     </nav>

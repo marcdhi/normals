@@ -24,7 +24,7 @@ export function Home() {
         </p>
 
         <Button className="mt-4">
-          <Link to="/market">Start Trading</Link>
+          <Link to="/">Start Trading</Link>
         </Button>
       </section>
 
