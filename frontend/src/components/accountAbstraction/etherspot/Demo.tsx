@@ -272,7 +272,7 @@ export default function Demo() {
                     </Button>
                     {balance && (
                         <p className="mt-3 opacity-60 flex gap-3">
-                            Balance: ${balance} rBTC
+                            Balance: ${balance} SOL
                         </p>
                     )}
                 </div>

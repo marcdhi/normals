@@ -32,7 +32,7 @@ export function Admin() {
     // Expiry
     const [expiryLocal, setExpiryLocal] = useState(''); // datetime-local string
 
-    // Collateral token (address(0) for RBTC, or token address e.g., RIF)
+    // Collateral token (address(0) for SOL, or token address e.g., SOL)
     const [collateralToken, setCollateralToken] = useState<string>('native');
 
     const { toast } = useToast();
@@ -122,7 +122,7 @@ export function Admin() {
         if (!raw) return '';
         // Remove the prefix (e.g., "Crypto.", "Equity.", etc.) and keep only the part after the dot
         const withoutPrefix = String(raw).includes('.') ? String(raw).split('.').slice(1).join('.') : String(raw);
-        // Remove slashes to make it compatible (e.g., BITCOIN/USD -> BITCOINUSD)
+        // Remove slashes to make it compatible (e.g., Solana/USD -> SolanaUSD)
         const cleanSymbol = withoutPrefix.replace(/\//g, '');
         return cleanSymbol ? `PYTH:${cleanSymbol}` : '';
     }, [selectedFeed, description]);
@@ -164,7 +164,7 @@ export function Admin() {
                                 <label className="block text-sm font-medium text-black mb-2">Search Pyth Price Feed</label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
                                     <Input 
-                                        placeholder="e.g., BTC or Bitcoin" 
+                                        placeholder="e.g., SOL or Solana" 
                                         value={pythQuery} 
                                         onChange={(e) => setPythQuery(e.target.value)}
                                     />
@@ -217,7 +217,7 @@ export function Admin() {
                                     Market Description
                                 </label>
                                 <Input 
-                                    placeholder="e.g., Bitcoin price by December 2025" 
+                                    placeholder="e.g., Solana price by December 2025" 
                                     value={description} 
                                     onChange={(e) => setDescription(e.target.value)}
                                     className="w-full"
@@ -286,7 +286,7 @@ export function Admin() {
                                         LP Token Name
                                     </label>
                                     <Input 
-                                        placeholder="e.g., BitCurve BTC-2025 LP" 
+                                        placeholder="e.g., BitCurve SOL-2025 LP" 
                                         value={lpTokenName} 
                                         onChange={(e) => setLpTokenName(e.target.value)}
                                     />
@@ -296,7 +296,7 @@ export function Admin() {
                                         LP Token Symbol
                                     </label>
                                     <Input 
-                                        placeholder="e.g., BC-BTC-LP" 
+                                        placeholder="e.g., BC-SOL-LP" 
                                         value={lpTokenSymbol} 
                                         onChange={(e) => setLpTokenSymbol(e.target.value)}
                                     />
@@ -318,11 +318,11 @@ export function Admin() {
                                 <div className="flex gap-4 items-center">
                                     <label className="flex items-center gap-2 text-black text-sm">
                                         <input type="radio" name="collateralType" value="native" checked={collateralToken==='native'} onChange={() => setCollateralToken('native')} />
-                                        RBTC
+                                        SOL
                                     </label>
                                     <label className="flex items-center gap-2 text-black text-sm">
                                         <input type="radio" name="collateralType" value="rif" checked={collateralToken!=='native' && collateralToken!=='0x0000000000000000000000000000000000000000'} onChange={() => setCollateralToken('0x19F64674D8A5B4E652319F5e239eFd3bc969A1fE')} />
-                                        RIF
+                                        SOL
                                     </label>
                                 </div>
                             </div>

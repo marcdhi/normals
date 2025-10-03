@@ -78,7 +78,7 @@ export function Market() {
     functionName: "symbol",
     query: { enabled: !reads.isNative },
   });
-  const collateralSymbol = reads.isNative ? 'RBTC' : ((collateralSymbolData as string) || 'TOKEN');
+  const collateralSymbol = reads.isNative ? 'SOL' : ((collateralSymbolData as string) || 'TOKEN');
 
   const tokenName = (tokenNameData as string) || "";
   const tokenSymbol = (tokenSymbolData as string) || "";
@@ -173,7 +173,7 @@ export function Market() {
     return () => clearTimeout(handler);
   }, [addAmount, publicClient, contractForReads]);
 
-  // Estimate network fee for proposed trade (gas * gasPrice in RBTC)
+  // Estimate network fee for proposed trade (gas * gasPrice in SOL)
   useEffect(() => {
     (async () => {
       try {
@@ -329,7 +329,7 @@ export function Market() {
                   </span>
                 </div>
                 <div className="text-xs text-black space-y-1">
-                  <div className="flex justify-between"><span>NETWORK FEE (EST)</span><span>{tradeFeeWei ? `${parseFloat(formatEther(tradeFeeWei)).toFixed(6)} RBTC` : '-'}</span></div>
+                  <div className="flex justify-between"><span>NETWORK FEE (EST)</span><span>{tradeFeeWei ? `${parseFloat(formatEther(tradeFeeWei)).toFixed(6)} SOL` : '-'}</span></div>
                   <div className="flex justify-between">
                     <span>MIN Δf(x)</span>
                     <span>
@@ -427,7 +427,7 @@ export function Market() {
                         <div className="flex justify-between"><span>Collateral to Close</span><span>{parseFloat(formatEther(quoteClose.collateral!)).toFixed(6)} {collateralSymbol}</span></div>
                         <div className="flex justify-between"><span>Expected Refund</span><span>{fromSD59x18(quoteClose.expectedRefund!).toFixed(6)} {collateralSymbol}</span></div>
                         <div className="flex justify-between"><span>Arg MinX</span><span>{fromSD59x18(quoteClose.argminX!).toFixed(6)}</span></div>
-                        <div className="flex justify-between"><span>Network Fee (est)</span><span>{closeFeeWei ? `${parseFloat(formatEther(closeFeeWei)).toFixed(6)} RBTC` : '-'}</span></div>
+                        <div className="flex justify-between"><span>Network Fee (est)</span><span>{closeFeeWei ? `${parseFloat(formatEther(closeFeeWei)).toFixed(6)} SOL` : '-'}</span></div>
                       </div>
                       <div className="mt-3">
                         {!reads.isNative && (
@@ -468,7 +468,7 @@ export function Market() {
             <TabsContent value="liquidity">
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold mb-2 text-black">Add Liquidity</h2>
-                <label className="text-sm text-black">Amount of {reads.isNative ? 'RBTC' : collateralSymbol} to provide</label>
+                <label className="text-sm text-black">Amount of {reads.isNative ? 'SOL' : collateralSymbol} to provide</label>
                 <Input
                   placeholder="0.0"
                   value={addAmount}
@@ -504,7 +504,7 @@ export function Market() {
                     <div className="flex justify-between"><span>Total {tokenSymbol ? `${tokenSymbol} Supply` : 'LP Supply'}</span><span>{parseFloat(formatEther(reads.totalShares)).toFixed(6)}</span></div>
                     <div className="flex justify-between"><span>Total Collateral in Pool</span><span>{parseFloat(formatEther(reads.totalCollateral)).toFixed(6)} {collateralSymbol}</span></div>
                     <div className="flex justify-between"><span>Your Pool Share %</span><span>{reads.poolSharePercent.toFixed(6)}%</span></div>
-                    <div className="flex justify-between"><span>Value of Your Shares</span><span>{parseFloat(reads.userShareValueRbtc).toFixed(6)} {collateralSymbol}</span></div>
+                    <div className="flex justify-between"><span>Value of Your Shares</span><span>{parseFloat(reads.userShareValueSOL).toFixed(6)} {collateralSymbol}</span></div>
                   </div>
                 </div>
 

@@ -114,7 +114,7 @@ export function useLiquidityState(marketAddress: `0x${string}`) {
       totalCollateral,
       poolSharePercent,
       userShareValueWei,
-      userShareValueRbtc: formatEther(userShareValueWei),
+      userShareValueSOL: formatEther(userShareValueWei),
       collateralToken,
       isNative,
       allowance: (allowanceData as bigint) ?? 0n,

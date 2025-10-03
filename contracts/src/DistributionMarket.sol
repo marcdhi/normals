@@ -29,7 +29,7 @@ contract DistributionMarket is ERC20 {
     // --- NEW STATE VARIABLE ---
     uint256 public totalCollateral; // Tracks total collateral held in the pool
 
-    // Collateral token address: address(0) means native RBTC; otherwise ERC20 token (e.g., RIF)
+    // Collateral token address: address(0) means native SOL; otherwise ERC20 token (e.g., SOL)
     address public immutable collateralToken;
 
     // --- NEW DATA STRUCTURES FOR POSITIONS ---
@@ -240,9 +240,9 @@ function quoteCollateral(
     // --- Collateral handling helpers ---
     function _receiveCollateral(uint256 amount) private {
         if (collateralToken == address(0)) {
-            require(msg.value == amount, "Incorrect RBTC amount sent");
+            require(msg.value == amount, "Incorrect SOL amount sent");
         } else {
-            require(msg.value == 0, "Do not send RBTC to a token market");
+            require(msg.value == 0, "Do not send SOL to a token market");
             IERC20(collateralToken).transferFrom(msg.sender, address(this), amount);
         }
     }

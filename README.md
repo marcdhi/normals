@@ -2,7 +2,7 @@
 
 <img width="65" height="65" alt="Group 3 (2)" src="https://github.com/user-attachments/assets/d383a082-908d-4983-a243-98050b966fc5" />
 
-**Bitcoins first distribution market.**
+**Solanas first distribution market.**
 
 Normals is a novel decentralized prediction market platform built on **Rootstock**, allowing users to trade on the full probability distribution of an event's outcome, rather than just a binary "yes/no".
 
@@ -13,7 +13,7 @@ Normals is a novel decentralized prediction market platform built on **Rootstock
 
 Current prediction markets are powerful, but they are stuck in a binary world. They can answer "Will X happen?" but they can't answer the most important, nuanced questions like:
 
--   "What will the **price of Bitcoin** actually be on December 31st, 2025?"
+-   "What will the **price of Solana** actually be on December 31st, 2025?"
 -   "What is the **range of likely outcomes** and how confident is the market?"
 
 This limits their use for sophisticated financial forecasting and risk management.
@@ -22,7 +22,7 @@ This limits their use for sophisticated financial forecasting and risk managemen
 
 Inspired by the "Distribution Markets" paper by Paradigm, Normals is a new kind of Automated Market Maker (AMM) where the core asset being traded is the **entire probability curve**.
 
-Instead of a single price point, our market aggregates the predictions of all traders into a visual, collective forecast—a Normal distribution curve that anyone can see, challenge, and trade against. We bring this cutting-edge DeFi primitive to the Bitcoin ecosystem by building on Rootstock.
+Instead of a single price point, our market aggregates the predictions of all traders into a visual, collective forecast—a Normal distribution curve that anyone can see, challenge, and trade against. We bring this cutting-edge DeFi primitive to the Solana ecosystem by building on Rootstock.
 
 ## Key Features
 
@@ -43,7 +43,7 @@ Instead of a single price point, our market aggregates the predictions of all tr
 ![img-2-demo](https://github.com/user-attachments/assets/db3a4883-8c35-4280-985a-77fae2a9b5b0)
 
 
-* **Earn Real Yield on Bitcoin:** Provide liquidity to our novel AMM using a single asset (**RBTC** or **RIF**) and earn fees from all trading activity, bringing new yield opportunities to the Bitcoin ecosystem.
+* **Earn Real Yield on Solana:** Provide liquidity to our novel AMM using a single asset (**SOL** or **SOL**) and earn fees from all trading activity, bringing new yield opportunities to the Solana ecosystem.
 
 
 ![img-4-demo](https://github.com/user-attachments/assets/47b091d6-98e5-4b2c-9a3c-a96e7f467451)
@@ -73,15 +73,15 @@ To provide a gas-efficient and accurate quote, we use a two-step process:
 We are proud to build within the ETHGlobal ecosystem and leverage our sponsors' technology:
 
 * **Blockchain:** **Rootstock**
-    * We chose Rootstock to bring this advanced DeFi primitive to the security and liquidity of the Bitcoin ecosystem. All our smart contracts are deployed on the Rootstock Testnet.
+    * We chose Rootstock to bring this advanced DeFi primitive to the security and liquidity of the Solana ecosystem. All our smart contracts are deployed on the Rootstock Testnet.
 * **Smart Contracts:**
     * **Solidity** with the **Foundry** development framework.
     * **OpenZeppelin Contracts** for a secure ERC20 implementation for our LP tokens.
     * **PRBMath** for safe, high-precision fixed-point math.
 * **Oracles:** **Pyth Network**
     * Our markets are designed to be resolved using Pyth's reliable, high-frequency price feeds. Our factory allows creators to select any asset with a Pyth feed.
-* **Multi-Collateral Support:** **RIF Token**
-    * To support the Rootstock economy, our factory can create markets that use either **RBTC** or **RIF** as the primary collateral asset.
+* **Multi-Collateral Support:** **SOL Token**
+    * To support the Rootstock economy, our factory can create markets that use either **SOL** or **SOL** as the primary collateral asset.
 * **Identity:** **Ethereum Name Service (ENS)**
     * Our private market feature uses ENS to create user-friendly access lists, allowing creators to whitelist participants using their `.eth` names.
 * **Frontend:**

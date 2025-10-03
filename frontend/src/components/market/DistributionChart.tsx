@@ -49,7 +49,7 @@ const DistributionChart: React.FC<DistributionChartProps> = ({ market, proposed 
           type="number" 
           domain={['dataMin', 'dataMax']} 
           tickFormatter={(value) => `$${value.toFixed(0)}`}
-          label={{ value: 'Bitcoin Price ($)', position: 'insideBottom', offset: -15 }}
+          label={{ value: 'Solana Price ($)', position: 'insideBottom', offset: -15 }}
           stroke="#9ca3af"
         />
         <YAxis 

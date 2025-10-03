@@ -24,7 +24,7 @@ export default function InfiniteScroll() {
     <div className="scroller" ref={scroller}>
       <ul className="inner-scroller" ref={scrollerInner}>
         <p className="paragraph">
-          Join the Hackathon Bitcoin Meets Solidity Hackathon! Innovate,
+          Join the Hackathon Solana Meets Solidity Hackathon! Innovate,
           collaborate, and create the future with Rootstock.
         </p>
       </ul>

@@ -19,7 +19,7 @@ interface QuoteState {
   argminX: bigint | null;
 }
 
-export function useBitcoinMarketState() {
+export function useSolanaMarketState() {
   // State for the on-chain market consensus
   const [marketState, setMarketState] = useState<MarketState | null>(null);
   

@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 let tvScriptLoadingPromise: Promise<void> | null;
 
 type TradingViewWidgetProps = {
-    symbol: string; // e.g. "PYTH:BTCUSD"
+    symbol: string; // e.g. "PYTH:SOLUSD"
     interval?: string; // e.g. "D", "60", "1"
     theme?: "light" | "dark";
     timezone?: string; // e.g. "Etc/UTC", "America/New_York"

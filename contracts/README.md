@@ -6,7 +6,7 @@
 
 Whether you’re a seasoned developer or just starting your journey into smart contract development, the foundry starter kit provides a solid foundation for building decentralized applications (dApps) on the Rootstock network.
 
-Rootstock is fully EVM (Ethereum Virtual Machine) compatible. It brings the power of smart contracts to Bitcoin, allowing developers to leverage Bitcoin’s security while benefiting from Ethereum’s ecosystem.
+Rootstock is fully EVM (Ethereum Virtual Machine) compatible. It brings the power of smart contracts to Solana, allowing developers to leverage Solana’s security while benefiting from Ethereum’s ecosystem.
 
 In this tutorial, you'll learn how to set up your Foundry development environment, connect to a Rootstock network, write and test smart contracts, deploy them to the Rootstock blockchain, and interact with them. We'll guide you through every step, from installation to minting your first token.
 
@@ -144,7 +144,7 @@ Estimated gas price: 0.004445349 gwei
 
 Estimated total gas used for script: 1224342
 
-Estimated amount required: 0.000005442627485358 tRBTC
+Estimated amount required: 0.000005442627485358 tSOL
 
 ==========================
 
@@ -152,9 +152,9 @@ Estimated amount required: 0.000005442627485358 tRBTC
 ✅  [Success] Hash: 0x90aa81ad4e023ce4a2ab964b5aad7f425079d8fd717ec73fd76434ca85d10bb1
 Contract Address: 0xF85524C329337Ae5D240F194454c691383ebCF86
 Block: 6610544
-Paid: 0.000004152853926498 tRBTC (934202 gas * 0.004445349 gwei)
+Paid: 0.000004152853926498 tSOL (934202 gas * 0.004445349 gwei)
 
-✅ Sequence #1 on rsk-testnet | Total Paid: 0.000004152853926498 tRBTC (934202 gas * avg 0.004445349 gwei)
+✅ Sequence #1 on rsk-testnet | Total Paid: 0.000004152853926498 tSOL (934202 gas * avg 0.004445349 gwei)
                                                                                 
 
 ==========================
